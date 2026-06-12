@@ -1,12 +1,10 @@
 /* ============================================================
      ファイル: public/client.js
-     バージョン: v1.0
-     日付: 2026-06-13
+     バージョン: v27.0
      変更点:
-       1) Socket.IOを用いたサーバーとのリアルタイム通信の実装
-       2) GAS版の音声・UI描画ロジックの分離と移植
-       3) ポーリング(1秒ごとの通信)の廃止とイベント駆動への変更
-     ※ server.js v1.0 / public/index.html v1.0 とセットで使用
+       1) 座席選択が勝手に解除される不具合を修正
+       2) サーバーからの専用リセットイベント(gameReset)に対応
+     ※ server.js v27.0 / public/index.html v27.0 とセットで使用
    ============================================================ */
 
 const socket = io();
@@ -175,17 +173,18 @@ socket.on('updateState', (state) => {
         if(state.announcement.kind === 'win') playSound('win');
         if(state.announcement.kind === 'play') playSound('play');
     }
-    
-    if(!gameStarted && mySeat !== 0 && Object.keys(boardState.S).length === 0) {
-        mySeat = 0; initialSevens.clear();
-        document.querySelectorAll('.seat-btn').forEach(btn => btn.classList.remove('selected', 'locked'));
-        document.getElementById('yourSeat').textContent = '未選択';
-        document.getElementById('currentTurn').textContent = '—';
-        document.getElementById('cardCount').textContent = '—';
-        document.getElementById('handCards').innerHTML = '<div style="color: #999; font-size: 11px;">席を選択してゲーム開始</div>';
-        document.getElementById('ranking').style.display = 'none';
-        initBoard();
-    }
+});
+
+// 新しく追加：サーバーからのリセット指示を確実に受け取る
+socket.on('gameReset', () => {
+    mySeat = 0; initialSevens.clear();
+    document.querySelectorAll('.seat-btn').forEach(btn => btn.classList.remove('selected', 'locked'));
+    document.getElementById('yourSeat').textContent = '未選択';
+    document.getElementById('currentTurn').textContent = '—';
+    document.getElementById('cardCount').textContent = '—';
+    document.getElementById('handCards').innerHTML = '<div style="color: #999; font-size: 11px;">席を選択してゲーム開始</div>';
+    document.getElementById('ranking').style.display = 'none';
+    initBoard();
 });
 
 

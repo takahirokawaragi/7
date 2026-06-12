@@ -1,12 +1,9 @@
 /* ============================================================
      ファイル: server.js
-     バージョン: v1.0
-     日付: 2026-06-13
+     バージョン: v27.0
      変更点:
-       1) Express + Socket.IOによるリアルタイム通信サーバーの構築
-       2) GAS版のルール完全移植（7に近い数字を優先して出すAI機能含む）
-       3) Render環境(UptimeRobot対応)向けの設定
-     ※ public/index.html v1.0 / public/client.js v1.0 とセットで使用
+       1) クライアントへのリセット通知(gameResetイベント)を追加
+     ※ public/index.html v27.0 / public/client.js v27.0 とセットで使用
    ============================================================ */
 
 const express = require('express');
@@ -188,7 +185,6 @@ io.on('connection', (socket) => {
         if (!gameState.started) startGame();
     });
 
-    // ここから下が途切れていた部分の修正です
     socket.on('playCard', (data) => {
         const { seatNum, suit, rank } = data;
         if (!gameState.started || gameState.currentTurn !== seatNum) return;
@@ -212,6 +208,7 @@ io.on('connection', (socket) => {
         }
         gameState.message = "リセットされました";
         io.emit('updateState', getPublicState());
+        io.emit('gameReset'); // ここでクライアントにリセットを指示
     });
 
     socket.on('disconnect', () => {
