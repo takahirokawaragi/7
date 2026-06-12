@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>オンライン七ならべ v1.0 (2026-06-13)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 8px; font-size: 13px; }
+.container { max-width: 1600px; margin: 0 auto; }
+h1 { color: white; text-align: center; margin-bottom: 8px; font-size: 20px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+.version-date { font-size: 12px; font-weight: normal; opacity: 0.8; margin-left: 8px; }
+
+#loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(102, 126, 234, 0.95); display: flex; align-items: center; justify-content: center; z-index: 9999; font-size: 20px; font-weight: bold; color: white; }
+#loading-overlay.hidden { display: none; }
+
+.help-toggle { background: rgba(255,255,255,0.95); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; color: #4285F4; }
+.help-toggle:hover { background: white; }
+.help-content { display: none; background: rgba(255,255,255,0.95); border-radius: 8px; padding: 12px; margin-bottom: 8px; font-size: 11px; }
+.help-content.show { display: block; }
+.help-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.help-item { background: #f8f9fa; padding: 8px; border-radius: 6px; border-left: 3px solid #4285F4; }
+.help-item strong { display: block; margin-bottom: 3px; color: #1a73e8; font-size: 11px; }
+
+.game-layout { display: grid; grid-template-columns: 1fr 380px; gap: 10px; background: white; border-radius: 12px; padding: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
+
+.board { background: #2d5016; border-radius: 10px; padding: 12px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.3); }
+.board-grid { display: grid; grid-template-columns: 50px repeat(13, 1fr); gap: 4px; }
+.board-cell { aspect-ratio: 5/7; background: rgba(255,255,255,0.1); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 32px; color: white; border: 1px solid rgba(255,255,255,0.2); }
+.board-cell.header { background: #e3f5ff; font-weight: bold; font-size: 32px; color: #333; }
+.board-cell.card { background: white; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.2); overflow: hidden; }
+.board-cell.card.initial { background: #e3f5ff; }
+.board-cell.card img { width: 100%; height: 100%; object-fit: contain; }
+
+.control-area { display: flex; flex-direction: column; gap: 8px; }
+
+.seat-selector { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.seat-btn { padding: 6px 4px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; }
+.seat-btn:hover:not(.selected):not(.locked) { transform: translateY(-2px); }
+.seat-btn.selected { background: #4CAF50; color: white; border-color: #45a049; }
+.seat-btn.locked { opacity: 0.6; cursor: not-allowed; }
+.seat-btn.p1 { border-color: #EA4335; } .seat-btn.p1.selected { background: #EA4335; }
+.seat-btn.p2 { border-color: #FBBC05; } .seat-btn.p2.selected { background: #FBBC05; }
+.seat-btn.p3 { border-color: #34A853; } .seat-btn.p3.selected { background: #34A853; }
+.seat-btn.p4 { border-color: #4285F4; } .seat-btn.p4.selected { background: #4285F4; }
+.seat-btn.p5 { border-color: #AB47BC; } .seat-btn.p5.selected { background: #AB47BC; }
+
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.btn { padding: 6px 10px; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: #4285F4; color: white; }
+.btn-success { background: #34A853; color: white; }
+.btn-warning { background: #FBBC05; color: #333; }
+.btn-danger { background: #EA4335; color: white; }
+
+.status-panel { background: #f8f9fa; border-radius: 8px; padding: 8px; border-left: 3px solid #4285F4; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: 11px; }
+
+.status-label { font-weight: 600; color: #555; display: block; }
+.status-value { color: #000; font-weight: 700; }
+
+.hand { background: #f8f9fa; border-radius: 8px; padding: 10px; border: 2px solid #ddd; position: relative; }
+.hand.active { border-color: #4CAF50; box-shadow: 0 0 12px rgba(76, 175, 80, 0.4); }
+.hand-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333; }
+.hand-cards { display: flex; gap: 6px; flex-wrap: wrap; min-height: 80px; margin-bottom: 8px; }
+.hand-card { width: 55px; height: 77px; border-radius: 4px; cursor: pointer; transition: opacity 0.2s; box-shadow: 0 1px 4px rgba(0,0,0,0.15); position: relative; overflow: hidden; }
+.hand-card:hover { opacity: 0.8; }
+.hand-card img { width: 100%; height: 100%; object-fit: cover; }
+.hand-guide { background: #e3f2fd; padding: 6px; border-radius: 4px; font-size: 10px; color: #1976d2; text-align: center; }
+
+.message-area { min-height: 45px; display: flex; align-items: center; justify-content: center; }
+.message { padding: 8px; border-radius: 6px; font-size: 11px; font-weight: 600; text-align: center; opacity: 0; transition: opacity 0.3s; }
+.message.show { opacity: 1; }
+.message.info { background: #e3f2fd; color: #1976d2; }
+.message.success { background: #e8f5e9; color: #2e7d32; }
+.message.error { background: #ffebee; color: #c62828; }
+.message.warning { background: #fff3e0; color: #e65100; }
+
+.ranking { background: #fff3cd; border-radius: 8px; padding: 8px; border-left: 3px solid #ffc107; }
+.ranking h3 { margin-bottom: 6px; color: #856404; font-size: 12px; }
+.ranking ol { margin-left: 20px; font-size: 11px; }
+.ranking li { margin: 4px 0; color: #856404; font-weight: 600; }
+
+@media (max-width: 1024px) {
+  .game-layout { grid-template-columns: 1fr; }
+  .board-grid { grid-template-columns: 40px repeat(13, 1fr); gap: 3px; }
+  .board-cell { font-size: 24px; }
+  .board-cell.header { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+<div id="loading-overlay">サーバーに接続中...</div>
+
+<div class="container">
+  <h1>🎴 オンライン七ならべ v1.0<span class="version-date">(2026-06-13)</span></h1>
+  
+  <div class="help-toggle" onclick="document.getElementById('helpContent').classList.toggle('show')">
+    <span>💡 遊び方ガイド</span>
+    <span>▼</span>
+  </div>
+  
+  <div class="help-content" id="helpContent">
+    <div class="help-grid">
+      <div class="help-item"><strong>1. 座席選択</strong>プレイヤー1〜5をクリック</div>
+      <div class="help-item"><strong>2. ゲーム開始</strong>「開始」ボタンをクリック</div>
+      <div class="help-item"><strong>3. カードを出す</strong>手札のカードをクリック</div>
+      <div class="help-item"><strong>4. ルール</strong>7に隣接するカードのみ出せます</div>
+    </div>
+  </div>
+  
+  <div class="game-layout">
+    <div class="board-area">
+      <div class="board"><div class="board-grid" id="boardGrid"></div></div>
+    </div>
+    
+    <div class="control-area">
+      <div class="seat-selector" id="seatSelector">
+        <button class="seat-btn p1" data-seat="1">P1</button>
+        <button class="seat-btn p2" data-seat="2">P2</button>
+        <button class="seat-btn p3" data-seat="3">P3</button>
+        <button class="seat-btn p4" data-seat="4">P4</button>
+        <button class="seat-btn p5" data-seat="5">P5</button>
+      </div>
+
+      <div class="controls">
+        <button class="btn btn-success" id="btnStart">開始</button>
+        <button class="btn btn-warning" id="btnPass" disabled>パス</button>
+        <button class="btn btn-danger" id="btnReset">リセット</button>
+      </div>
+
+      <div class="status-panel">
+        <div class="status-item"><span class="status-label">手番</span><span class="status-value" id="currentTurn">—</span></div>
+        <div class="status-item"><span class="status-label">座席</span><span class="status-value" id="yourSeat">未選択</span></div>
+        <div class="status-item"><span class="status-label">残札</span><span class="status-value" id="cardCount">—</span></div>
+      </div>
+
+      <div class="hand" id="hand">
+        <div class="hand-title">あなたの手札</div>
+        <div class="hand-cards" id="handCards"><div style="color: #999; font-size: 11px;">席を選択してゲーム開始</div></div>
+        <div class="hand-guide">カードをクリックして出してください</div>
+      </div>
+
+      <div class="message-area"><div id="message" class="message"></div></div>
+
+      <div class="ranking" id="ranking" style="display:none;">
+        <h3>🏆 順位</h3><ol id="rankingList"></ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="client.js"></script>
+</body>
+</html>
